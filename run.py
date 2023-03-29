@@ -5,7 +5,6 @@ import datetime as dt
 from threading import Thread
 
 
-# sdusaduas
 
 # NOTE: for documentation on the different classes and methods used to interact with the SHIFT system, 
 # see: https://github.com/hanlonlab/shift-python/wiki
@@ -124,7 +123,7 @@ def main(trader):
     threads = []
 
     # in this example, we simultaneously and independantly run our trading alogirthm on two tickers
-    tickers = ["AAPL", "MSFT", "AMZN"]
+    tickers = ["AAPL", "MSFT"]
 
     print("START")
 

@@ -1,22 +1,26 @@
 import shift
 from time import sleep
-from datetime import datetime, timedelta
+from datetime import datetime
 import datetime as dt
 from threading import Thread
 from utilities import * 
 from strategies import *
+import logging
 
 def main(trader):
     # keeps track of times for the simulation
     check_frequency = 60
-    current = trader.get_last_trade_time()
-    # start_time = datetime.combine(current, dt.time(9, 30, 0))
-    # end_time = datetime.combine(current, dt.time(15, 50, 0))
-    start_time = current
-    end_time = start_time + timedelta(minutes=1)
+    start_time = datetime.combine(trader.get_last_trade_time(), dt.time(9, 38, 0))
+    end_time = datetime.combine(trader.get_last_trade_time(), dt.time(15, 50, 0))
+    logging.basicConfig(filename='example.log', format="",level=logging.DEBUG)
+
+    logging.debug(f"start time: {start_time}")
+    logging.debug(f"end time: {end_time}")
+    logging.debug(f"current time: {trader.get_last_trade_time()}")
+    
 
     while trader.get_last_trade_time() < start_time:
-        print("still waiting for market open")
+        logging.debug(f"{trader.get_last_trade_time()} still waiting for market open")
         sleep(check_frequency)
 
     # we track our overall initial profits/losses value to see how our strategy affects it
@@ -24,23 +28,25 @@ def main(trader):
 
     threads = []
 
-    # in this example, we simultaneously and independantly run our trading alogirthm on two tickers
-    tickers = ["AAPL", "MSFT"]
+    # in this example, we simultaneously and independantly run our trading alogirthm on all DOW 30 stocks
+    tickers = trader.get_stock_list()
 
     print("START")
 
     for ticker in tickers:
         # initializes threads containing the strategy for each ticker
         threads.append(
-            Thread(target=strategy, args=(trader, ticker, end_time)))
+            Thread(target=record, args=(trader, ticker, end_time)))
 
     for thread in threads:
         thread.start()
-        sleep(1)
 
     # wait until endtime is reached
     while trader.get_last_trade_time() < end_time:
         sleep(check_frequency)
+        logging.debug("end time not reached")
+    
+    logging.debug("end time reached!")
 
     # wait for all threads to finish
     for thread in threads:
@@ -60,7 +66,7 @@ def main(trader):
 
 
 if __name__ == '__main__':
-    with shift.Trader("skl_test20") as trader:
+    with shift.Trader("skl_test10") as trader:
         trader.connect("initiator.cfg", "15n55Y770n")
         sleep(1)
         trader.sub_all_order_book()

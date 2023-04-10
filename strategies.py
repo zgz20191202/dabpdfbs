@@ -1,5 +1,37 @@
 import shift
 from utilities import * 
+import pandas as pd
+
+def record(trader: shift.Trader, ticker: str, endtime):
+    # NOTE: Unlike the following sample strategy, it is highly reccomended that you track and account for your buying power and
+    # position sizes throughout your algorithm to ensure both that have adequite captial to trade throughout the simulation and
+    # that you are able to close your position at the end of the strategy without incurring major losses.
+    timestamp_ls = []
+    ticker_ls = []
+    price_ls = []
+    volume_ls = []
+    bid_ask_ls = []
+    while (trader.get_last_trade_time() < endtime):
+        print(f"recording order book for {ticker}!")
+        for o in trader.get_order_book(ticker, shift.OrderBookType.GLOBAL_BID, 1):
+            timestamp_ls.append(o.time)
+            ticker_ls.append(ticker)
+            price_ls.append(o.price)
+            volume_ls.append(o.size)
+            bid_ask_ls.append("BID")
+        for o in trader.get_order_book(ticker, shift.OrderBookType.GLOBAL_ASK, 1):
+            timestamp_ls.append(o.time)
+            ticker_ls.append(ticker)
+            price_ls.append(o.price)
+            volume_ls.append(o.size)
+            bid_ask_ls.append("ASK")
+        print(f"recording for {ticker} finished. About to sleep!")
+        sleep(1)
+    order_book_dict = {"timestamp":timestamp_ls, "ticker":ticker_ls, "price": price_ls, "volume" :volume_ls, "bid_ask": bid_ask_ls}
+    order_book_df = pd.DataFrame(order_book_dict)
+    order_book_df = order_book_df.set_index("timestamp")
+    order_book_df.to_csv(f"data/{ticker}_order_book_data.csv")
+
 
 def strategy(trader: shift.Trader, ticker: str, endtime):
     # NOTE: Unlike the following sample strategy, it is highly reccomended that you track and account for your buying power and

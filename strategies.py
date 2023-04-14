@@ -8,7 +8,7 @@ from datetime import timedelta
 # strategy parameters
 short_ema_period = 8
 long_ema_period = 13
-cross_threshold = 0.01
+cross_threshold = 0.02
 stop_loss_tick = 2
 stop_profit_tick = 3
 # logging.basicConfig(filename='example.log', format="",level=logging.DEBUG)
@@ -43,7 +43,7 @@ def get_ema(prices, period: int) -> float:
     for price in prices[-period + 1:]:
         ema = (price - ema_prev) * multiplier + ema_prev
         ema_prev = ema
-    return ema 
+    return round(ema, 2) 
 
 
 def generate_signal(ema_long_ls, ema_short_ls):
@@ -67,7 +67,7 @@ def generate_signal(ema_long_ls, ema_short_ls):
 
 def stop_loss(trader, ticker, fair_price_ls):
     """
-    stop loss when losing 10%
+    stop loss when losing 2 tick
     """
     portfolio = trader.get_portfolio_item(ticker)
     stop_flag = False
@@ -86,7 +86,7 @@ def stop_loss(trader, ticker, fair_price_ls):
 
 def stop_profit(trader, ticker, fair_price_ls):
     """
-    stop profit when earning 20%
+    stop profit when earning 3 tick
     """
     portfolio = trader.get_portfolio_item(ticker)
     stop_flag = False
@@ -149,7 +149,6 @@ def dual_ema(trader: shift.Trader, ticker, endtime):
                 if signal == 1:
                     # logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} receive buy signal!")
                     # buy
-                    # target_price = best_bid_price + 0.01
                     target_price = fair_price_ls[-1] - 0.01
                     ticker_short_position = trader.get_portfolio_item(ticker).get_short_shares()
                     order_shares = min(500 + ticker_short_position, buy_power/target_price)

@@ -2,14 +2,16 @@ import shift
 from utilities import * 
 import pandas as pd
 import numpy as np
-import logging
+# import logging
 from datetime import timedelta
 
 # strategy parameters
 short_ema_period = 8
 long_ema_period = 13
 cross_threshold = 0.01
-logging.basicConfig(filename='example.log', format="",level=logging.DEBUG)
+stop_loss_tick = 2
+stop_profit_tick = 3
+# logging.basicConfig(filename='example.log', format="",level=logging.DEBUG)
 
 
 def send_order(trader: shift.Trader, order_type ,ticker, target_price, order_size):
@@ -17,16 +19,16 @@ def send_order(trader: shift.Trader, order_type ,ticker, target_price, order_siz
     send orders
     """
     price = round(target_price, 2)  
-    order_size = int((order_size// 100) * 100)
-    if order_size < 100:
-        logging.debug(f"time: {trader.get_last_trade_time()}, order size smaller than 100! order type: {order_type}, order size: {order_size}, order price: {price} ticker: {ticker} ")
+    order_size = int(order_size// 100)
+    if order_size < 1:
+        # logging.debug(f"time: {trader.get_last_trade_time()}, order size smaller than 1! order type: {order_type}, order size: {order_size}, order price: {price} ticker: {ticker} ")
         return None
-    if order_size >= 100 and order_type in [shift.Order.Type.LIMIT_BUY, shift.Order.Type.LIMIT_SELL]:
+    if order_size >= 1 and order_type in [shift.Order.Type.LIMIT_BUY, shift.Order.Type.LIMIT_SELL]:
         order = shift.Order(order_type, ticker, order_size, price)
-        logging.debug(f"time: {trader.get_last_trade_time()}, send a new limit order! order type: {order_type}, order size: {order_size}, order price: {price} ticker: {ticker} ")
-    if order_size >= 100 and order_type in [shift.Order.Type.MARKET_BUY, shift.Order.Type.MARKET_SELL]:
+        # logging.debug(f"time: {trader.get_last_trade_time()}, send a new limit order! order type: {order_type}, order size: {order_size}, order price: {price} ticker: {ticker} ")
+    if order_size >= 1 and order_type in [shift.Order.Type.MARKET_BUY, shift.Order.Type.MARKET_SELL]:
         order = shift.Order(order_type, ticker, order_size)
-        logging.debug(f"time: {trader.get_last_trade_time()}, send a new market order! order type: {order_type}, order size: {order_size}, order price: {price} ticker: {ticker} ")
+        # logging.debug(f"time: {trader.get_last_trade_time()}, send a new market order! order type: {order_type}, order size: {order_size}, order price: {price} ticker: {ticker} ")
     trader.submit_order(order)
 
 
@@ -70,12 +72,12 @@ def stop_loss(trader, ticker, fair_price_ls):
     portfolio = trader.get_portfolio_item(ticker)
     stop_flag = False
     if portfolio.get_long_shares() > 0:
-        if (portfolio.get_long_price() - fair_price_ls[-1])/portfolio.get_long_price() > 0.1:
+        if portfolio.get_long_price() - fair_price_ls[-1] > stop_loss_tick * 0.01:
             # sell all position
             close_positions(trader, ticker)
             stop_flag = True
     if portfolio.get_short_shares() > 0:
-        if (portfolio.get_short_price() - fair_price_ls[-1])/portfolio.get_short_price() < -0.1:
+        if portfolio.get_short_price() - fair_price_ls[-1] < -stop_loss_tick * 0.01:
             # buy back all position
             close_positions(trader, ticker)
             stop_flag = True
@@ -89,12 +91,12 @@ def stop_profit(trader, ticker, fair_price_ls):
     portfolio = trader.get_portfolio_item(ticker)
     stop_flag = False
     if portfolio.get_long_shares() > 0:
-        if (portfolio.get_long_price() - fair_price_ls[-1])/portfolio.get_long_price() < -0.2:
+        if portfolio.get_long_price() - fair_price_ls[-1] < -stop_profit_tick * 0.01:
             # sell all position
             close_positions(trader, ticker)
             stop_flag = True
     if portfolio.get_short_shares() > 0:
-        if (portfolio.get_short_price() - fair_price_ls[-1])/portfolio.get_short_price() > 0.2:
+        if portfolio.get_short_price() - fair_price_ls[-1] > stop_profit_tick * 0.01:
             # buy back all position
             close_positions(trader, ticker)
             stop_flag = True
@@ -102,8 +104,6 @@ def stop_profit(trader, ticker, fair_price_ls):
 
 
 def dual_ema(trader: shift.Trader, ticker, endtime):
-    logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} ready for dual ema!")
-
     intial_pnl = trader.get_portfolio_item(ticker).get_realized_pl()
     best_bid_ls = []
     best_ask_ls = []
@@ -113,6 +113,7 @@ def dual_ema(trader: shift.Trader, ticker, endtime):
     signal_ls = []
 
     while (trader.get_last_trade_time() < endtime - timedelta(minutes=1)):
+        # cancel previous orders
         cancel_orders(trader, ticker)
         best_price = trader.get_best_price(ticker)
         best_bid_price = best_price.get_bid_price()
@@ -122,38 +123,52 @@ def dual_ema(trader: shift.Trader, ticker, endtime):
         fair_price_ls.append((best_bid_price + best_ask_price)/2)
 
         if len(fair_price_ls) >= long_ema_period:
-            logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} ready for trading!")
+            # portfolio = trader.get_portfolio_item(ticker)
+            # position = "empty"
+            # price = 0
+            # if portfolio.get_long_shares()> 0:
+            #     position = "long"
+            #     price  = portfolio.get_long_price()
+            # elif portfolio.get_short_shares()> 0:
+            #     position = "short"
+            #     price = portfolio.get_short_price()
+            # price_spread = int((price - fair_price_ls[-1])/0.01)
+            # logging.debug(f"{trader.get_last_trade_time()}: current position for {ticker} is {position}, with a price {price} and spread of {price_spread} ticks")
             ema_short_ls.append(get_ema(fair_price_ls, short_ema_period))
             ema_long_ls.append(get_ema(fair_price_ls, long_ema_period))
 
             if stop_loss(trader, ticker, fair_price_ls):
-                logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} stop loss triggered! Need to cool down")
+                # logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} stop loss triggered! Need to cool down")
                 signal_ls = []
             elif stop_profit(trader, ticker, fair_price_ls):
-                logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} stop profit triggered! Need to cool down")
+                # logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} stop profit triggered! Need to cool down")
                 signal_ls = []
             else:
                 signal = generate_signal(ema_long_ls, ema_short_ls)
                 buy_power = trader.get_portfolio_summary().get_total_bp()
                 if signal == 1:
-                    logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} receive buy signal!")
+                    # logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} receive buy signal!")
                     # buy
-                    target_price = best_bid_price + 0.01
+                    # target_price = best_bid_price + 0.01
+                    target_price = fair_price_ls[-1] - 0.01
                     ticker_short_position = trader.get_portfolio_item(ticker).get_short_shares()
-                    order_size = ticker_short_position if ticker_short_position > 0 else min(100, buy_power/target_price)
-                    send_order(trader, shift.Order.Type.LIMIT_BUY,ticker, target_price, order_size)
+                    order_shares = min(500 + ticker_short_position, buy_power/target_price)
+                    # order_shares = ticker_short_position if ticker_short_position > 0 else min(100, buy_power/target_price)
+                    send_order(trader, shift.Order.Type.LIMIT_BUY,ticker, target_price, order_shares)
                     signal_ls.append(signal)
-                if signal == -1:
-                    logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} receive sell signal!")
+                elif signal == -1:
+                    # logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} receive sell signal!")
                     # sell
-                    target_price = best_ask_price - 0.01
+                    target_price = fair_price_ls[-1] + 0.01
                     ticker_long_position = trader.get_portfolio_item(ticker).get_long_shares()
-                    order_size = ticker_long_position if ticker_long_position > 0 else min(100, buy_power/target_price)
-                    send_order(trader, shift.Order.Type.LIMIT_SELL,ticker, target_price, order_size)
+                    # need double buy power to close short position
+                    order_shares = min(500 + ticker_long_position, buy_power/2/target_price)
+                    send_order(trader, shift.Order.Type.LIMIT_SELL,ticker, target_price, order_shares)
                     signal_ls.append(signal)
         sleep(1)
     
-    if (trader.get_last_trade_time() >= endtime - timedelta(minutes=1)) and trader.get_last_trade_time() < endtime:
+    if (trader.get_last_trade_time() >= endtime - timedelta(minutes=1)):
+        # logging.debug(f"time: {trader.get_last_trade_time()}, {ticker} ready for closing position!")
         # cancel unfilled orders and close positions for this ticker
         cancel_orders(trader, ticker)
         close_positions(trader, ticker)

@@ -47,6 +47,13 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
         print(f"{trader.get_last_trade_time()}: cancel stale orders!")
         for ticker in ticker_ls:
             cancel_orders_wrap_up(trader, ticker)
+        
+        # close previous position
+        print(f"{trader.get_last_trade_time()}: close previous position")
+        for ticker in ticker_ls:
+            print(f"{trader.get_last_trade_time()}: close previous position for {ticker} ")
+            close_positions_wrap_up(trader, ticker)
+
         # update data
         print(f"{trader.get_last_trade_time()}: update data!")
         for ticker in ticker_ls:
@@ -70,17 +77,13 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
             # sort the dictionary by value and store the result as a list of tuples
             sorted_dict = sorted(return_dict.items(), key=lambda x: x[1], reverse=True)
             # get the keys of the top 5 and bottom 5 values
-            top_5_stock_ls = [x[0] for x in sorted_dict[:5]]
-            bottom_5_stock_ls = [x[0] for x in sorted_dict[-5:]]
+            top_5_stock_ls = [x[0] for x in sorted_dict[-5:]]
+            bottom_5_stock_ls = [x[0] for x in sorted_dict[:5]]
+            # top_5_stock_ls = [x[0] for x in sorted_dict[:5]]
+            # bottom_5_stock_ls = [x[0] for x in sorted_dict[-5:]]
             print(f"{trader.get_last_trade_time()}: top 5 stocks selected: {top_5_stock_ls}")
             print(f"{trader.get_last_trade_time()}: bottom 5 stocks selected: {bottom_5_stock_ls}")
 
-            # close postion of stocks not in the list
-            print(f"{trader.get_last_trade_time()}: close postion of stocks not in the list")
-            close_target_set = set(ticker_ls) - set(top_5_stock_ls) - set(bottom_5_stock_ls)
-            for ticker in close_target_set:
-                print(f"{trader.get_last_trade_time()}: close position for {ticker} not in the top 5 or bottom 5")
-                close_positions_wrap_up(trader, ticker)
             purchase_power = trader.get_portfolio_summary().get_total_bp()
             print(f"{trader.get_last_trade_time()}: current purchase power: {purchase_power}")
 
@@ -88,39 +91,28 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
             print(f"{trader.get_last_trade_time()}: rebalance for top 5 stocks")
             for ticker in top_5_stock_ls:
                 # get current position in money
-                portfolio = trader.get_portfolio_item(ticker)
-                current_investment = portfolio.get_shares() * vwap_price_dict[ticker][-1]
                 target_investment = purchase_power / 10 
-                investment_to_change = target_investment - current_investment
+                investment_to_change = target_investment
+                # investment_to_change = target_investment - current_investment
                 if investment_to_change > 0:
                     print(f"{trader.get_last_trade_time()}: rebalance for {ticker}, investment to change: {investment_to_change}")
-                    target_bid_price = bid_price_dict[ticker] + 0.01 * num_spread_tick
+                    target_bid_price = vwap_price_dict[ticker] - 0.01 * 1
                     order_bid_shares = investment_to_change/target_bid_price
                     send_order(trader, shift.Order.Type.LIMIT_BUY,ticker, target_bid_price, order_bid_shares)
-                if investment_to_change < 0:
-                    print(f"{trader.get_last_trade_time()}: rebalance for {ticker}, investment to change: {investment_to_change}")
-                    target_ask_price = ask_price_dict[ticker] - 0.01 * num_spread_tick
-                    order_ask_shares = -investment_to_change/target_ask_price
-                    send_order(trader, shift.Order.Type.LIMIT_SELL,ticker, target_ask_price, order_ask_shares)
+                
             
             print(f"{trader.get_last_trade_time()}: rebalance for bottom 5 stocks")
             for ticker in bottom_5_stock_ls:
                 # get current position in money
-                portfolio = trader.get_portfolio_item(ticker)
-                current_investment = portfolio.get_shares() * vwap_price_dict[ticker][-1]
-                target_investment = -purchase_power / 10 
-                investment_to_change = target_investment - current_investment
-                if investment_to_change > 0:
+                target_investment = purchase_power / 10 
+                investment_to_change = target_investment
+                if target_investment > 0:
                     print(f"{trader.get_last_trade_time()}: rebalance for {ticker}, investment to change: {investment_to_change}")
-                    target_bid_price = bid_price_dict[ticker] + 0.01 * num_spread_tick
-                    order_bid_shares = investment_to_change/target_bid_price
-                    send_order(trader, shift.Order.Type.LIMIT_BUY,ticker, target_bid_price, order_bid_shares)
-                if investment_to_change < 0:
-                    print(f"{trader.get_last_trade_time()}: rebalance for {ticker}, investment to change: {investment_to_change}")
-                    target_ask_price = bid_price_dict[ticker] - 0.01 * num_spread_tick
-                    order_ask_shares = -investment_to_change/target_ask_price
+                    target_ask_price = vwap_price_dict[ticker] + 0.01 * 1
+                    order_ask_shares = investment_to_change/target_ask_price
                     send_order(trader, shift.Order.Type.LIMIT_SELL,ticker, target_ask_price, order_ask_shares)
-        sleep(60)
+        sleep(120)
+
     # stop profit and stop loss phase
     print(f"time: {trader.get_last_trade_time()}, in stopping loss and profit phase!")
     while (trader.get_last_trade_time() >= endtime - timedelta(minutes=10)) and (trader.get_last_trade_time() < endtime - timedelta(minutes=2)):
@@ -149,7 +141,7 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
             if (trader.get_portfolio_item(ticker).get_price() < close_price - 0.01 * stop_profit_tick) and (position < 0):
                 send_order(trader, shift.Order.Type.LIMIT_BUY, ticker, close_price, -position)
                 print(f"time: {trader.get_last_trade_time()}, {ticker} stop loss from short position! stop_loss_tick: {stop_loss_tick}")
-        sleep(30)
+        sleep(15)
     print(f"time: {trader.get_last_trade_time()}, in wrapping up phase!")
     while (trader.get_last_trade_time() >= endtime - timedelta(minutes=2)) and (trader.get_last_trade_time() < endtime):
         for ticker in ticker_ls:

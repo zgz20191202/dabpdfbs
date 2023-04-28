@@ -10,7 +10,7 @@ def main(trader):
     # keeps track of times for the simulation
     check_frequency = 60
     # # for main competition
-    start_time = datetime.combine(trader.get_last_trade_time(), dt.time(9, 50, 0))
+    start_time = datetime.combine(trader.get_last_trade_time(), dt.time(9, 38, 0))
     end_time = datetime.combine(trader.get_last_trade_time(), dt.time(15, 57, 0))
 
     # for test only

@@ -3,8 +3,8 @@ from utilities import *
 from datetime import timedelta
 
 # strategy parameters
-stop_loss_tick = 4
-stop_profit_tick = 6
+stop_loss_tick = 5
+stop_profit_tick = 7
 num_spread_tick = 1
 
 
@@ -42,7 +42,7 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
     ask_price_dict = {ticker: 0 for ticker in ticker_ls}
     # portfolio construction and rebalance
     print(f"{trader.get_last_trade_time()}: portfolio construction and rebalance")
-    while (trader.get_last_trade_time() < endtime - timedelta(minutes=10)):
+    while (trader.get_last_trade_time() < endtime - timedelta(minutes=80)):
         # cancel stale orders
         print(f"{trader.get_last_trade_time()}: cancel stale orders!")
         for ticker in ticker_ls:
@@ -115,7 +115,7 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
 
     # stop profit and stop loss phase
     print(f"time: {trader.get_last_trade_time()}, in stopping loss and profit phase!")
-    while (trader.get_last_trade_time() >= endtime - timedelta(minutes=10)) and (trader.get_last_trade_time() < endtime - timedelta(minutes=2)):
+    while (trader.get_last_trade_time() >= endtime - timedelta(minutes=80)) and (trader.get_last_trade_time() < endtime - timedelta(minutes=2)):
         # cancel stale orders before doing stop loss and profit
         print(f"{trader.get_last_trade_time()}: cancel stale orders before doing stop loss and profit")
         for ticker in ticker_ls:
@@ -141,7 +141,7 @@ def pure_momentum(trader: shift.Trader, ticker_ls, endtime):
             if (trader.get_portfolio_item(ticker).get_price() < close_price - 0.01 * stop_profit_tick) and (position < 0):
                 send_order(trader, shift.Order.Type.LIMIT_BUY, ticker, close_price, -position)
                 print(f"time: {trader.get_last_trade_time()}, {ticker} stop loss from short position! stop_loss_tick: {stop_loss_tick}")
-        sleep(15)
+        sleep(60)
     print(f"time: {trader.get_last_trade_time()}, in wrapping up phase!")
     while (trader.get_last_trade_time() >= endtime - timedelta(minutes=2)) and (trader.get_last_trade_time() < endtime):
         for ticker in ticker_ls:
